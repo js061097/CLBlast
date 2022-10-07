@@ -16,7 +16,10 @@
 // =================================================================================================
 
 #include <stdlib.h>
+#include <math.h>
 #include <stdio.h>
+
+#include <sys/time.h>
 #include <string.h>
 
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS // to disable deprecation warnings
@@ -27,18 +30,24 @@
 // =================================================================================================
 
 // Example use of the single-precision routine SGEMM
-int main(void) {
+int main(int argc, char *argv[]) {
 
   // OpenCL platform/device settings
   const size_t platform_id = 0;
   const size_t device_id = 0;
 
+  if (argc < 4)
+    {
+        puts("Usage: M, N, K\n");
+        exit(1);
+    }
+
   // Example SGEMM arguments
-  const size_t m = 128;
-  const size_t n = 64;
-  const size_t k = 512;
-  const float alpha = 0.7f;
-  const float beta = 1.0f;
+  const size_t m = atoi(argv[1]);;
+  const size_t n = atoi(argv[2]);;
+  const size_t k = atoi(argv[3]);;
+  const float alpha = 1.0f;
+  const float beta = 0.0f;
   const size_t a_ld = k;
   const size_t b_ld = n;
   const size_t c_ld = n;
@@ -78,6 +87,10 @@ int main(void) {
   clEnqueueWriteBuffer(queue, device_b, CL_TRUE, 0, n*k*sizeof(float), host_b, 0, NULL, NULL);
   clEnqueueWriteBuffer(queue, device_c, CL_TRUE, 0, m*n*sizeof(float), host_c, 0, NULL, NULL);
 
+
+  struct timeval begin, end;
+  gettimeofday(&begin, NULL);
+
   // Call the SGEMM routine.
   CLBlastStatusCode status = CLBlastSgemm(CLBlastLayoutRowMajor,
                                           CLBlastTransposeNo, CLBlastTransposeNo,
@@ -94,9 +107,18 @@ int main(void) {
     clWaitForEvents(1, &event);
     clReleaseEvent(event);
   }
+  cl_int err = clFinish(queue);
+    gettimeofday(&end, NULL);
 
   // Example completed. See "clblast_c.h" for status codes (0 -> success).
-  printf("Completed SGEMM with status %d\n", status);
+  //printf("Completed SGEMM with status %d\n", status);
+
+  double dt = (end.tv_sec - begin.tv_sec)
+              + ((end.tv_usec - begin.tv_usec) / 1000000.0);
+    double gflops = 2*m*n*k / dt / 1e9;
+    double gbytes = 4*(m + k)*n / dt / pow(1024, 3);
+
+  printf("%f GFLOP/s\n%f GiB/s\n", gflops, gbytes);
 
   // Clean-up
   free(platforms);
